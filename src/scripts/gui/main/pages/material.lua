@@ -21,8 +21,8 @@ function material_page.update(int_name, gui_data, player_data, home_data, item_d
 
   local obj_data = global.recipe_book.material[int_name]
 
-  info_list_box.update(obj_data.ingredient_in, "recipe", refs.material.ingredient_in, player_data, item_data, "in")
-  info_list_box.update(obj_data.product_of, "recipe", refs.material.product_of, player_data, item_data, "out")
+  local ingredients = info_list_box.update(obj_data.ingredient_in, "recipe", refs.material.ingredient_in, player_data, item_data, "in")
+  local products = info_list_box.update(obj_data.product_of, "recipe", refs.material.product_of, player_data, item_data, "out")
   info_list_box.update(obj_data.rocket_launch_payloads, "material", refs.material.rocket_launch_payloads, player_data)
   info_list_box.update(obj_data.rocket_launch_products, "material", refs.material.rocket_launch_products, player_data)
   info_list_box.update(obj_data.mined_from, "resource", refs.material.mined_from, player_data)
@@ -30,6 +30,8 @@ function material_page.update(int_name, gui_data, player_data, home_data, item_d
   info_list_box.update(obj_data.usable_in, "lab", refs.material.usable_in, player_data)
   info_list_box.update(obj_data.burnable_in, "crafter", refs.material.burnable_in, player_data)
   info_list_box.update(obj_data.unlocked_by, "technology", refs.material.unlocked_by, player_data, item_data, "in")
+
+  return ingredients, products
 end
 
 return material_page

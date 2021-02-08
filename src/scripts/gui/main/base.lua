@@ -173,6 +173,79 @@ function main_gui.build(player, player_table)
                   children = pages.recipe.build()
                 }
               }}
+            }},
+            -- subrecipe page
+            {type = "frame", style = "rb_main_info_frame", direction = "vertical", visible = false, ref = {"base", "subrecipe", "frame"}, children = {
+              -- info bar
+              {
+                type = "frame",
+                style = "subheader_frame",
+                visible = false,
+                ref = {"base", "info_bar2", "frame"},
+                children = {
+                  {type = "label", style = "rb_toolbar_label", ref = {"base", "info_bar2", "label"}},
+                  {type = "empty-widget", style = "flib_horizontal_pusher"},
+                  {
+                    type = "sprite-button",
+                    style = "frame_action_button",
+                    sprite = "rb_nav_backward_white",
+                    hovered_sprite = "rb_nav_backward_black",
+                    clicked_sprite = "rb_nav_backward_black",
+                    mouse_button_filter = {"left"},
+                    enabled = true,
+                    ref = {"base", "info_bar2", "nav_backward_button"},
+                    actions = {
+                      on_click = {gui = "main", action = "previous_sub_recipe"}
+                    }
+                  },
+                  {
+                    type = "sprite-button",
+                    style = "frame_action_button",
+                    sprite = "rb_nav_forward_white",
+                    hovered_sprite = "rb_nav_forward_black",
+                    clicked_sprite = "rb_nav_forward_black",
+                    mouse_button_filter = {"left"},
+                    enabled = true,
+                    ref = {"base", "info_bar2", "nav_forward_button"},
+                    actions = {
+                      on_click = {gui = "main", action = "next_sub_recipe"}
+                    }
+                  },
+                  {
+                    type = "sprite-button",
+                    style = "tool_button",
+                    sprite = "rb_clipboard_black",
+                    tooltip = {"rb-gui.open-quick-reference"},
+                    mouse_button_filter = {"left"},
+                    ref = {"base", "info_bar2", "quick_ref_button"},
+                    actions = {
+                      on_click = {gui = "main", action = "toggle_quick_ref"}
+                    }
+                  },
+                  {
+                    type = "sprite-button",
+                    style = "tool_button",
+                    sprite = "rb_favorite_black",
+                    tooltip = {"rb-gui.add-to-favorites"},
+                    mouse_button_filter = {"left"},
+                    ref = {"base", "info_bar2", "favorite_button"},
+                    actions = {
+                      on_click = {gui = "main", action = "toggle_favorite"}
+                    }
+                  }
+                }
+              },
+              -- content scroll pane
+              {type = "scroll-pane", style = "rb_naked_scroll_pane", children = {
+                {
+                  type = "flow",
+                  style = "rb_main_info_pane_flow",
+                  direction = "vertical",
+                  visible = false,
+                  ref = {"sub_recipe", "flow"},
+                  children = pages.recipe.build("sub_")
+                }
+              }}
             }}
           }
         }
@@ -311,9 +384,18 @@ function main_gui.open_page(player, player_table, item_data, options)
   end
   local int_name = (obj_class == "fluid" or obj_class == "item") and obj_class.."."..obj_name or obj_name
 
+  local open_sub_recipe = item_data.open_sub_recipe
+
+  local open_page_data = gui_data.state.open_page
+
+  if open_sub_recipe then
+    open_page_data = gui_data.state.open_sub_page
+  else
+    gui_data.state.open_sub_page = nil
+  end
+
   -- don't do anything if the page is already open
-  if not options.force_open then
-    local open_page_data = gui_data.state.open_page
+  if not options.force_open and open_page_data then
     if
       open_page_data.int_class ~= "home"
       and open_page_data.int_class == int_class
@@ -322,6 +404,37 @@ function main_gui.open_page(player, player_table, item_data, options)
     then
       return
     end
+  end
+
+  if open_sub_recipe then
+    if not gui_data.state.open_sub_page then
+      gui_data.state.open_sub_page = {}
+    end
+    
+    gui_data.state.open_sub_page.recipe_index = item_data.sub_recipe_index
+    gui_data.state.open_sub_page.recipe_side = item_data.sub_recipe_side
+    gui_data.state.open_sub_page.int_class = int_class
+    gui_data.state.open_sub_page.int_name = int_name
+    gui_data.state.open_sub_page.name = obj_name
+    gui_data.state.open_sub_page.class =  obj_class
+
+    if item_data.sub_recipe_side == "in" then
+      gui_data.state.open_sub_page.recipes = gui_data.state.open_page.ingredients
+    elseif item_data.sub_recipe_side == "out" then
+      gui_data.state.open_sub_page.recipes = gui_data.state.open_page.products
+    end
+
+    if #gui_data.state.open_sub_page.recipes == 1 then
+      gui_data.refs.base.info_bar2.nav_backward_button.visible = false
+      gui_data.refs.base.info_bar2.nav_forward_button.visible = false
+    else
+      gui_data.refs.base.info_bar2.nav_backward_button.visible = true
+      gui_data.refs.base.info_bar2.nav_forward_button.visible = true
+    end
+
+    open_page_data = gui_data.state.open_sub_page
+  else
+    gui_data.state.open_sub_page = nil
   end
 
   -- assemble various player data to be passed later
@@ -343,103 +456,115 @@ function main_gui.open_page(player, player_table, item_data, options)
   -- update search history
   local temperature_key = ""
   if item_data.fluid_temperature_key then
-    temperature_key = "#"..item_data.fluid_temperature_key
+      temperature_key = "#"..item_data.fluid_temperature_key
   end
 
-  local history = player_table.history
-  local session_history = history.session
-  local global_history = history.global
-  if not options.skip_history then
-    -- global history
-    local combined_name = obj_class.."."..obj_name..temperature_key
-    if global_history[combined_name] then
-      for i = 1, #global_history do
-        local entry = global_history[i]
-        if entry.class.."."..entry.name == combined_name then
-          table.remove(global_history, i)
-          break
+  if not open_sub_recipe then
+
+    local history = player_table.history
+    local session_history = history.session
+    local global_history = history.global
+    if not options.skip_history then
+      -- global history
+      local combined_name = obj_class.."."..obj_name..temperature_key
+      if global_history[combined_name] then
+        for i = 1, #global_history do
+          local entry = global_history[i]
+          if entry.class.."."..entry.name == combined_name then
+            table.remove(global_history, i)
+            break
+          end
         end
+      else
+        global_history[combined_name] = true
       end
-    else
-      global_history[combined_name] = true
-    end
-    table.insert(global_history, 1, {int_class = int_class, int_name = int_name, class = obj_class, name = obj_name, fluid_temperature_key = item_data.fluid_temperature_key, fluid_temperature_string = item_data.fluid_temperature_string})
-    local last_entry = global_history[31]
-    if last_entry then
-      table.remove(global_history, 31)
-      global_history[last_entry.class.."."..last_entry.name] = nil
+      table.insert(global_history, 1, {int_class = int_class, int_name = int_name, class = obj_class, name = obj_name, fluid_temperature_key = item_data.fluid_temperature_key, fluid_temperature_string = item_data.fluid_temperature_string})
+      local last_entry = global_history[31]
+      if last_entry then
+        table.remove(global_history, 31)
+        global_history[last_entry.class.."."..last_entry.name] = nil
+      end
+
+      -- session history
+      if session_history.position > 1 then
+        for _ = 1, session_history.position - 1 do
+          table.remove(session_history, 1)
+        end
+        session_history.position = 1
+      elseif session_history.position == 0 then
+        session_history.position = 1
+      end
+      table.insert(session_history, 1, {int_class = int_class, int_name = int_name, class = obj_class, name = obj_name, fluid_temperature_key = item_data.fluid_temperature_key, fluid_temperature_string = item_data.fluid_temperature_string})
     end
 
-    -- session history
-    if session_history.position > 1 then
-      for _ = 1, session_history.position - 1 do
-        table.remove(session_history, 1)
+    -- update nav buttons
+    local position = session_history.position
+    local tooltip_str_tbl = {}
+    for i = 1, #session_history do
+      local entry = session_history[i]
+      local label = "      "
+      if i == position then
+        label = "[font=default-bold][color="..constants.colors.green.str.."]>[/color][/font]   "
       end
-      session_history.position = 1
-    elseif session_history.position == 0 then
-      session_history.position = 1
+      if entry.int_class == "home" then
+        label = label.."[font=default-semibold]"..translations.gui.home_page.."[/font]"
+      else
+        local obj_data = global.recipe_book[entry.int_class][entry.int_name]
+        local _, style, caption = formatter(obj_data, player_data, {always_show = true, is_label = true, fluid_temperature_string = entry.fluid_temperature_string, fluid_temperature_key = entry.fluid_temperature_key})
+        if string.find(style, "unresearched") then
+          caption = "[color="..constants.colors.unresearched.str.."]"..caption.."[/color]"
+        end
+        label = label..caption
+      end
+      label = label.."\n"
+      tooltip_str_tbl[i] = label
     end
-    table.insert(session_history, 1, {int_class = int_class, int_name = int_name, class = obj_class, name = obj_name, fluid_temperature_key = item_data.fluid_temperature_key, fluid_temperature_string = item_data.fluid_temperature_string})
-  end
-
-  -- update nav buttons
-  local position = session_history.position
-  local tooltip_str_tbl = {}
-  for i = 1, #session_history do
-    local entry = session_history[i]
-    local label = "      "
-    if i == position then
-      label = "[font=default-bold][color="..constants.colors.green.str.."]>[/color][/font]   "
-    end
-    if entry.int_class == "home" then
-      label = label.."[font=default-semibold]"..translations.gui.home_page.."[/font]"
+    local tooltip_str = table.concat(tooltip_str_tbl)
+    local backward_button = refs.base.titlebar.nav_backward_button
+    local forward_button = refs.base.titlebar.nav_forward_button
+    backward_button.tooltip = {
+      "",
+      "[font=default-bold][color="..constants.colors.heading.str.."]",
+      {"rb-gui.session-history"},
+      "[/color][/font]\n",
+      tooltip_str,
+      {"rb-gui.navigate-backward-tooltip"}
+    }
+    forward_button.tooltip = {
+      "",
+      "[font=default-bold][color="..constants.colors.heading.str.."]",
+      {"rb-gui.session-history"},
+      "[/color][/font]\n",
+      tooltip_str,
+      {"rb-gui.navigate-forward-tooltip"}
+    }
+    if position == 1 then
+      forward_button.enabled = false
+      forward_button.sprite = "rb_nav_forward_disabled"
     else
-      local obj_data = global.recipe_book[entry.int_class][entry.int_name]
-      local _, style, caption = formatter(obj_data, player_data, {always_show = true, is_label = true, fluid_temperature_string = entry.fluid_temperature_string, fluid_temperature_key = entry.fluid_temperature_key})
-      if string.find(style, "unresearched") then
-        caption = "[color="..constants.colors.unresearched.str.."]"..caption.."[/color]"
-      end
-      label = label..caption
+      forward_button.enabled = true
+      forward_button.sprite = "rb_nav_forward_white"
     end
-    label = label.."\n"
-    tooltip_str_tbl[i] = label
-  end
-  local tooltip_str = table.concat(tooltip_str_tbl)
-  local backward_button = refs.base.titlebar.nav_backward_button
-  local forward_button = refs.base.titlebar.nav_forward_button
-  backward_button.tooltip = {
-    "",
-    "[font=default-bold][color="..constants.colors.heading.str.."]",
-    {"rb-gui.session-history"},
-    "[/color][/font]\n",
-    tooltip_str,
-    {"rb-gui.navigate-backward-tooltip"}
-  }
-  forward_button.tooltip = {
-    "",
-    "[font=default-bold][color="..constants.colors.heading.str.."]",
-    {"rb-gui.session-history"},
-    "[/color][/font]\n",
-    tooltip_str,
-    {"rb-gui.navigate-forward-tooltip"}
-  }
-  if position == 1 then
-    forward_button.enabled = false
-    forward_button.sprite = "rb_nav_forward_disabled"
-  else
-    forward_button.enabled = true
-    forward_button.sprite = "rb_nav_forward_white"
-  end
-  if position < #session_history then
-    backward_button.enabled = true
-    backward_button.sprite = "rb_nav_backward_white"
-  else
-    backward_button.enabled = false
-    backward_button.sprite = "rb_nav_backward_disabled"
+    if position < #session_history then
+      backward_button.enabled = true
+      backward_button.sprite = "rb_nav_backward_white"
+    else
+      backward_button.enabled = false
+      backward_button.sprite = "rb_nav_backward_disabled"
+    end
   end
 
   -- update / toggle info bar
   local info_bar = refs.base.info_bar
+
+  if open_sub_recipe then
+    refs.base.subrecipe.frame.visible = true
+    info_bar = refs.base.info_bar2
+  else 
+    refs.base.subrecipe.frame.visible = false
+  end
+
+
   if obj_class == "home" then
     info_bar.frame.visible = false
   else
@@ -480,21 +605,30 @@ function main_gui.open_page(player, player_table, item_data, options)
   end
 
   -- update page information
-  pages[int_class].update(int_name, gui_data, player_data, home_data, item_data)
+  local ingredients, products = pages[int_class].update(int_name, gui_data, player_data, home_data, item_data, open_sub_recipe)
 
   -- update visible page
-  refs[gui_data.state.open_page.int_class].flow.visible = false
-  gui_data.refs[int_class].flow.visible = true
+  if not open_sub_recipe then
+    refs[gui_data.state.open_page.int_class].flow.visible = false
+    gui_data.refs[int_class].flow.visible = true
+  else
+    gui_data.refs["sub_recipe"].flow.visible = true
+  end
 
+  if not open_sub_recipe then
+    gui_data.state.open_page = {
+      int_class = int_class,
+      int_name = int_name,
+      class = obj_class,
+      name = obj_name,
+      fluid_temperature_key = item_data.fluid_temperature_key,
+      fluid_temperature_string = item_data.fluid_temperature_string,
+      ingredients = ingredients,
+      products = products
+    }
+  end
   -- update state
-  gui_data.state.open_page = {
-    int_class = int_class,
-    int_name = int_name,
-    class = obj_class,
-    name = obj_name,
-    fluid_temperature_key = item_data.fluid_temperature_key,
-    fluid_temperature_string = item_data.fluid_temperature_string
-  }
+
 end
 
 function main_gui.handle_action(msg, e)
@@ -523,6 +657,7 @@ function main_gui.handle_action(msg, e)
       end
     elseif msg.action == "handle_list_box_item_click" then
       local item_data = info_list_box.handle_click(e, player, player_table)
+
       if item_data then
         main_gui.open_page(player, player_table, item_data)
       end
@@ -532,7 +667,7 @@ function main_gui.handle_action(msg, e)
       end
     elseif msg.action == "toggle_favorite" then
       local favorites = player_table.favorites
-      local open_page = state.open_page
+      local open_page = state.open_sub_page or state.open_page
       local temperature_key = ""
       if open_page.fluid_temperature_key then
         temperature_key = "#"..open_page.fluid_temperature_key
@@ -560,6 +695,11 @@ function main_gui.handle_action(msg, e)
       end
     elseif msg.action == "toggle_quick_ref" then
       local name = player_table.guis.main.state.open_page.name
+
+      if player_table.guis.main.state.open_sub_page and player_table.guis.main.state.open_sub_page.name then
+        name = player_table.guis.main.state.open_sub_page.name
+      end
+
       if player_table.guis.quick_ref[name] then
         quick_ref_gui.destroy(player_table, name)
         refs.base.info_bar.quick_ref_button.style = "tool_button"
@@ -633,6 +773,27 @@ function main_gui.handle_action(msg, e)
         refs.base.titlebar.settings_button.style = "flib_selected_frame_action_button"
         refs.base.titlebar.settings_button.sprite = "rb_settings_black"
       end
+    elseif msg.action == "previous_sub_recipe" or msg.action == "next_sub_recipe" then
+      local index = state.open_sub_page.recipe_index
+      local side = state.open_sub_page.recipe_side
+
+      if msg.action == "previous_sub_recipe" then
+        if index == 1 then
+          index = #state.open_sub_page.recipes
+        else 
+          index = index - 1
+        end
+      else
+        if index == #state.open_sub_page.recipes then
+          index = 1
+        else 
+          index = index + 1
+        end
+      end
+
+      local recipe = state.open_sub_page.recipes[index]
+
+      main_gui.open_page(player, player_table, { item_class= recipe.item_class, item_name = recipe.item_name, sub_recipe_side = side, sub_recipe_index = index,  open_sub_recipe = true })
     end
   end
 end

@@ -28,7 +28,7 @@ function info_list_box.build(caption, rows, save_location, tooltip)
   )
 end
 
-function info_list_box.update(tbl, int_class, list_box, player_data, options, direction_hint)
+function info_list_box.update(tbl, int_class, list_box, player_data, options, direction_aid)
   options = options or {}
 
   local recipe_book = global.recipe_book[int_class]
@@ -38,6 +38,8 @@ function info_list_box.update(tbl, int_class, list_box, player_data, options, di
   local add = scroll.add
   local children = scroll.children
 
+  local items = {}
+  
   -- loop through input table
   local i = options.starting_index or 0
   for j = 1, #tbl do
@@ -61,9 +63,9 @@ function info_list_box.update(tbl, int_class, list_box, player_data, options, di
       local min1, max1 = util.parse_fluid_temperature_key(options.fluid_temperature_key)
       local min2, max2 = util.parse_fluid_temperature_key(obj.fluid_temperature_key)
       
-      if direction_hint == "in" and (min1 < min2 or max1 > max2) then
+      if direction_aid == "in" and (min1 < min2 or max1 > max2) then
         skip = true
-      elseif direction_hint == "out" and (min2 < min1 or max2 > max1) then
+      elseif direction_aid == "out" and (min2 < min1 or max2 > max1) then
         skip = true
       end
     end
@@ -81,7 +83,6 @@ function info_list_box.update(tbl, int_class, list_box, player_data, options, di
           break
         end
       end
-
     end
     
     if not skip then
@@ -104,6 +105,13 @@ function info_list_box.update(tbl, int_class, list_box, player_data, options, di
       }
 
       if should_add then
+
+        if direction_aid then
+          context_data.sub_recipe_side = direction_aid
+          context_data.sub_recipe_index = #items+1
+          items[#items+1] = context_data
+        end
+
         i = i + 1
         -- update or add item
         local child = children[i]
@@ -158,6 +166,8 @@ function info_list_box.update(tbl, int_class, list_box, player_data, options, di
     caption[2] = i - (options.starting_index or 0)
     list_box.label.caption = caption
   end
+
+  return items
 end
 
 -- only used on the home screen
@@ -306,6 +316,10 @@ function info_list_box.handle_click(e, player, player_table)
       end
     end
   else
+    if listbox_item_data.sub_recipe_index and class == "recipe" and e.shift then
+      listbox_item_data.open_sub_recipe = true
+    end
+
     return listbox_item_data
   end
 end
