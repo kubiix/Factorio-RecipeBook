@@ -8,6 +8,9 @@ local info_list_box = require("scripts.gui.main.info-list-box")
 local quick_ref_gui = require("scripts.gui.quick-ref")
 local search_gui = require("scripts.gui.main.search")
 local settings_gui = require("scripts.gui.main.settings")
+local statistics_gui = require("scripts.gui.main.statistics")
+
+local shared = require("scripts.shared")
 
 local pages = {}
 for _, name in ipairs(constants.main_pages) do
@@ -88,6 +91,19 @@ function main_gui.build(player, player_table)
               ref = {"base", "titlebar", "settings_button"},
               actions = {
                 on_click = {gui = "main", action = "toggle_settings"}
+              }
+            },
+            {
+              type = "sprite-button",
+              style = "frame_action_button",
+              tooltip = {"rb-gui.statistics"},
+              sprite = "rb_statistics_white",
+              hovered_sprite = "rb_statistics_black",
+              clicked_sprite = "rb_statistics_black",
+              mouse_button_filter = {"left"},
+              ref = {"base", "titlebar", "statistics_button"},
+              actions = {
+                on_click = {gui = "main", action = "toggle_statistics"}
               }
             },
             {
@@ -285,7 +301,8 @@ function main_gui.build(player, player_table)
         }
       }},
       -- settings window
-      settings_gui.build(player_table.settings)
+      settings_gui.build(player_table.settings),
+      statistics_gui.build(player.index)
     }}
   })
 
@@ -303,7 +320,8 @@ function main_gui.build(player, player_table)
       pinned = false,
       pinning = false,
       search = search_gui.init(),
-      settings = settings_gui.init()
+      settings = settings_gui.init(),
+      statistics = statistics_gui.init()
     }
   }
 
@@ -727,6 +745,33 @@ function main_gui.handle_action(msg, e)
         refs.base.titlebar.settings_button.style = "flib_selected_frame_action_button"
         refs.base.titlebar.settings_button.sprite = "rb_settings_black"
       end
+      if state.statistics.open then
+        state.statistics.open = false
+        refs.statistics.window.visible = false
+        refs.base.titlebar.statistics_button.style = "frame_action_button"
+        refs.base.titlebar.statistics_button.sprite = "rb_statistics_white"
+      end
+    elseif msg.action == "toggle_statistics" then
+      if state.statistics.open then
+        state.statistics.open = false
+        refs.statistics.window.visible = false
+        refs.base.titlebar.statistics_button.style = "frame_action_button"
+        refs.base.titlebar.statistics_button.sprite = "rb_statistics_white"
+      else
+        state.statistics.open = true
+        refs.statistics.window.visible = true
+        refs.base.titlebar.statistics_button.style = "flib_selected_frame_action_button"
+        refs.base.titlebar.statistics_button.sprite = "rb_statistics_black"
+      end
+      if state.settings.open then
+        state.settings.open = false
+        refs.settings.window.visible = false
+        refs.base.titlebar.settings_button.style = "frame_action_button"
+        refs.base.titlebar.settings_button.sprite = "rb_settings_white"
+      end
+    elseif msg.action == "reload_statistics" then
+      shared.calculate_statistics(player_table)
+      statistics_gui.update(player_table.player_index, player_table.guis.main)
     elseif msg.action == "open_technology_gui" then
       player_table.flags.technology_gui_open = true
       player.open_technology_gui(msg.technology)
@@ -756,6 +801,7 @@ function main_gui.refresh_contents(player, player_table)
     open_page.name,
     {force_open = true, skip_history = true}
   )
+  statistics_gui.update(player.index, player_table.guis.main)
 end
 
 function main_gui.update_quick_ref_button(player_table)

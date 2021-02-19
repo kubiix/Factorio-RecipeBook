@@ -10,7 +10,7 @@ local quick_ref_gui = require("scripts.gui.quick-ref")
 
 local player_data = {}
 
-function player_data.init(player_index)
+function player_data.init(player_index, force_index)
   local data = {
     favorites = {},
     flags = {
@@ -20,6 +20,7 @@ function player_data.init(player_index)
       show_message_after_translation = false,
       translate_on_join = false
     },
+    force_index = force_index,
     guis = {
       quick_ref = {}
     },
@@ -29,7 +30,19 @@ function player_data.init(player_index)
         position = 1
       }
     },
+    player_index = player_index,
     settings = {},
+    statistics = {
+      is_dirty = true,
+      categories = {
+        crafter = {},
+        fluid = {},
+        item = {},
+        recipe = {},
+        resource = {},
+        technology = {}
+      }
+    },
     translations = nil -- assigned its initial value in player_data.refresh
   }
   global.players[player_index] = data
@@ -107,6 +120,8 @@ function player_data.refresh(player, player_table)
 
   -- update settings
   player_data.update_settings(player, player_table)
+
+  player_table.statistics.is_dirty = true
 
   -- run translations
   player_table.translations = table.deep_copy(constants.empty_translations_table)

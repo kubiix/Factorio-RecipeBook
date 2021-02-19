@@ -97,4 +97,3 @@ function util.unique_obj_array(initial_tbl)
 end
 
 return util
-

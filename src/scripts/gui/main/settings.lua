@@ -113,6 +113,8 @@ function settings_page.handle_action(msg, e)
     else
       player_table.settings[tags.setting_name] = checked_state
     end
+
+    player_table.statistics.is_dirty = true
     shared.refresh_contents(player, player_table)
   end
 end

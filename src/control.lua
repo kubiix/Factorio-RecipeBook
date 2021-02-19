@@ -14,6 +14,8 @@ local shared = require("scripts.shared")
 local main_gui = require("scripts.gui.main.base")
 local quick_ref_gui = require("scripts.gui.quick-ref")
 
+local statistics_proc = require("scripts.processors.statistics")
+
 -- -----------------------------------------------------------------------------
 -- COMMANDS
 
@@ -44,7 +46,7 @@ event.on_init(function()
   global_data.build_recipe_book()
   global_data.check_forces()
   for i, player in pairs(game.players) do
-    player_data.init(i)
+    player_data.init(i, player.force_index)
     player_data.refresh(player, global.players[i])
   end
 end)
@@ -64,6 +66,7 @@ event.on_configuration_changed(function(e)
 
     for i, player in pairs(game.players) do
       player_data.refresh(player, global.players[i])
+      statistics_proc.init(global.recipe_book, i)
     end
   end
 end)
@@ -82,6 +85,7 @@ event.register({defines.events.on_research_finished, defines.events.on_research_
 
   -- refresh all GUIs to reflect finished research
   for _, player in pairs(e.research.force.players) do
+    --statistics_proc.update(global.recipe_book, player.index)
     local player_table = global.players[player.index]
     if player_table and player_table.flags.can_open_gui then
       if player_table.flags.gui_open then
@@ -89,6 +93,7 @@ event.register({defines.events.on_research_finished, defines.events.on_research_
       end
       quick_ref_gui.refresh_all(player, player_table)
     end
+
   end
 end)
 
@@ -200,11 +205,13 @@ end)
 -- PLAYER
 
 event.on_player_created(function(e)
-  player_data.init(e.player_index)
   local player = game.get_player(e.player_index)
+  player_data.init(e.player_index, player.force.index)
+  
   local player_table = global.players[e.player_index]
   player_data.refresh(player, player_table)
   formatter.create_cache(e.player_index)
+  statistics_proc.init(global.recipe_book, player_table)
 end)
 
 event.on_player_removed(function(e)
@@ -217,6 +224,8 @@ event.on_player_joined_game(function(e)
     player_table.flags.translate_on_join = false
     player_data.start_translations(e.player_index)
   end
+
+  statistics_proc.init(global.recipe_book, player_table)
 end)
 
 event.on_player_left_game(function(e)
@@ -304,4 +313,8 @@ end
 
 function shared.update_quick_ref_button(player_table)
   main_gui.update_quick_ref_button(player_table)
+end
+
+function shared.calculate_statistics(player_table)
+  statistics_proc.calculate(global.recipe_book, player_table)
 end

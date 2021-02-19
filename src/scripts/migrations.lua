@@ -13,8 +13,8 @@ return {
     gui.init()
     translation.init()
     global_data.init()
-    for i in pairs(game.players) do
-      player_data.init(i)
+    for i, player in pairs(game.players) do
+      player_data.init(i, player.force_index)
     end
   end,
   ["2.4.0"] = function()

@@ -103,6 +103,13 @@ styles.rb_settings_category_frame = {
   right_padding = 8
 }
 
+styles.rb_statistics_category_frame = {
+  type = "frame_style",
+  parent = "bordered_frame",
+  horizontally_stretchable = "on",
+  right_padding = 8
+}
+
 -- LABEL STYLES
 
 styles.rb_toolbar_label = {
